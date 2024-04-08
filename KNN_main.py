@@ -5,12 +5,24 @@ import pandas as pd
 
 ##We're not considering "Overfitting" cases in this code
 
+class ColorFill:
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    END = "\033[0m"
+
+
+
+
+
 DataSet = ""
 filepath = f"{os.getcwd()}/data_set/"
 
 weight = [1,1,1,1,1,1,1,1]  #8
 normal_bias = [1,1,1,1,1,1]  #6
 weight_bias = 1
+formal_weight = 1
 acc_list = [0]
 
 def readfile(fp,mode)->list:
@@ -92,34 +104,52 @@ def outcome(result)->int:
     return max(cond)
 
 def validation(k,epochs,learning_rate):
+    global weight_bias
+    global formal_weight_bias
     for argument in range(len(weight)):
-        print(f"arg={argument}")
-        for epoch in range(epochs):
+        print(f"{ColorFill.GREEN}arg={argument}{ColorFill.END}")
+        weight_bias = 1
+        formal_weight_bias= 1
+        for epoch in range(1,epochs+1):
             correction=0
             quantity=0
             ValidData = readfile(filepath,"valid")
+            pos = False
+            neg = False
             for data in ValidData:
                 results = outcome(neighbor(readfile(filepath,"train"),data,k))
                 #print(f"Predicted class: {"無糖尿病"if results == 0 else "有糖尿病"}\tActual class: {"無糖尿病"if data[-1] == 0 else "有糖尿病"}")
                 correction += 1 if results == data[-1] else 0
                 quantity += 1
             acc_list.append(round(correction/quantity*100.0,2))
-            print(f"Accuracy: {acc_list[-1]}%")
-            try:
-                if acc_list[-3] == acc_list[-1] and weight_bias == 1:
-                    break
-            except :
-                None
-            train_weights(weight,learning_rate,argument,acc_list[-1])
+            
+            pos ,neg = train_weights(weight,learning_rate,argument,acc_list[-1],pos,neg)
+
+            if pos and neg :
+                break
+            if(acc_list[-2] == acc_list[-1]):
+                epoch -=1
+            print(f'{ColorFill.RED}Accuracy: {acc_list[-1]} // epoch:{epoch} // pos|neg:{pos}|{neg}{ColorFill.END}%')
 
 
-def train_weights(weight, learning_rate,argw,acc):
+def train_weights(weight, learning_rate,argw,acc,pos,neg)->set:
     global weight_bias
     global acc_list
+    global formal_weight
+    global epochs
     print(weight_bias,acc_list[-2],acc)
-    weight[argw] = weight[argw] + learning_rate * (100-acc) / 20 * weight_bias
+    weight[argw] = weight[argw] * (1+learning_rate * (100-acc) / 20 * weight_bias)
+    
+    if acc<acc_list[-2]:
+        weight[argw] = formal_weight
+        if(weight_bias < 0):
+            neg = True
+        elif(weight_bias > 0):
+            pos = True
+            
+    
     weight_bias = 1 if acc>acc_list[-2] else (weight_bias*2 if acc==acc_list[-2] else -1)
-
+    return pos,neg
 
 
 
@@ -135,7 +165,7 @@ if __name__ == '__main__':
     MODE = str(input("Enter the mode you want to use(1.test  2.valid):"))
     DataSet = str(input("Enter the dataset you want to use(A/B):")).upper()
     filepath+= DataSet
-    learning_rate = 0.01
+    learning_rate = 0.1
     k_times = int(input("Enter the number of k:"))    
     epochs = int(input("Enter the number of train epochs:"))
     if MODE == "1":
@@ -143,5 +173,5 @@ if __name__ == '__main__':
     elif MODE == "2":
         validation(k_times,epochs,learning_rate)
 
-    
+    f'{ColorFill.GREEN}Accuracy: {acc_list[-1]}%{ColorFill.END}'
     #weight = train_weights(data, labels, weight, learning_rate, epochs)
