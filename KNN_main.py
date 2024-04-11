@@ -2,7 +2,7 @@ import math
 import os
 import csv 
 import pandas as pd
-
+import numpy as np
 ##We're not considering "Overfitting" cases in this code
 
 class ColorFill:
@@ -19,13 +19,13 @@ class ColorFill:
 DataSet = ""
 filepath = f"{os.getcwd()}/data_set/"
 
-weight = [1,1,1,1,1,1,1,1]  #8
-normal_bias = [1,1,1,1,1,1]  #6
+weight = np.ones(8)  #8
+normal_bias = np.ones((6,2))  #6
 weight_bias = 1
 formal_weight = 1
-acc_list = [0]
+acc_list = np.zeros(0)   #Accuracy list
 
-def readfile(fp,mode)->list:
+def readfile(fp,mode)->np.array:
     with open(file = fp+"/"+mode+".csv", mode = 'r',newline='') as f:
         raw_data = csv.reader(f)
         data = []
@@ -34,7 +34,7 @@ def readfile(fp,mode)->list:
             data.append(list(map(float,row)))
         return data_cleaning(data)
 
-def data_cleaning(data)->list:
+def data_cleaning(data)->np.array:
 
     for describe in range(1,len(data[0])-2):
         total = 0
@@ -51,35 +51,30 @@ def data_cleaning(data)->list:
 
         for i in range(len(data)):
             data[i][describe] = a[i]
-
-        data = normalized(data,avg)
+        data = normalized(np.array(data),avg,describe)
     return data
 
-def normalized(data,avg)->list:
-    for row in range(1,len(data[0])-2):
+
+def normalized(data,avg,row)->np.array:
+    temp = []
+    for i in data:
+        temp.append(round(i[row],2))
+    temp = pd.DataFrame(temp)
+    Q1 = temp.quantile(0.25).values.tolist()[0]
+    Q3 = temp.quantile(0.75).values.tolist()[0]
+    IQR = Q3 - Q1
+    temp = list(map(lambda x : avg if (x < (Q1 - 1.5 * IQR)) | (x > (Q3 + 1.5 * IQR)) else x, temp.values.flatten().tolist()))
+    
+    temp_max = max(temp)
+    temp_min = min(temp)
+    #print(f"Max:{temp_max}\tMin:{temp_min}")
+    NORMAL = temp_max - temp_min
+    normal_bias[row-1] = [NORMAL,temp_min]
+    for j in range(len(temp)):
+        data[j][row] = round((temp[j]-temp_min)/NORMAL,4)
+    #input("press")
         
-        temp = []
-        for i in data:
-            temp.append(round(i[row],0))
-        temp = pd.DataFrame(temp)
-        Q1 = temp.quantile(0.25).values.tolist()[0]
-        Q3 = temp.quantile(0.75).values.tolist()[0]
-        IQR = Q3 - Q1
-        temp = list(map(lambda x : avg if (x < (Q1 - 1.5 * IQR)) | (x > (Q3 + 1.5 * IQR)) else x, temp.values.flatten().tolist()))
-        '''
-        temp_max = max(temp)
-        temp_min = min(temp)
-        print(f"Max:{temp_max}\tMin:{temp_min}")
-        print(data)
-        NORMAL = temp_max - temp_min
-        normal_bias[row-1] = [NORMAL,temp_min]
-        for j in range(len(temp)):
-            print(data[j][row])
-            data[j][row] = round((temp[j]-temp_min)/NORMAL,4)
-        input("")
-        '''
-        
-    return data
+    return np.array(data)
 
 def neighbor(train,test,k)->list:
     DistanceSet = []
@@ -103,9 +98,18 @@ def outcome(result)->int:
             cond[result[i][1][-1]] = 1
     return max(cond)
 
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def loss_function(y_true, y_pred):
+    return -np.mean(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
+
+
 def validation(k,epochs,learning_rate):
     global weight_bias
     global formal_weight_bias
+    global acc_list
     for argument in range(len(weight)):
         print(f"{ColorFill.GREEN}arg={argument}{ColorFill.END}")
         weight_bias = 1
@@ -121,15 +125,15 @@ def validation(k,epochs,learning_rate):
                 #print(f"Predicted class: {"無糖尿病"if results == 0 else "有糖尿病"}\tActual class: {"無糖尿病"if data[-1] == 0 else "有糖尿病"}")
                 correction += 1 if results == data[-1] else 0
                 quantity += 1
-            acc_list.append(round(correction/quantity*100.0,2))
-            
+            final = np.append(acc_list,[round(correction/quantity*100.0,2)],axis=0)
+            acc_list = final.copy()
             pos ,neg = train_weights(weight,learning_rate,argument,acc_list[-1],pos,neg)
 
             if pos and neg :
                 break
             if(acc_list[-2] == acc_list[-1]):
                 epoch -=1
-            print(f'{ColorFill.RED}Accuracy: {acc_list[-1]} // epoch:{epoch} // pos|neg:{pos}|{neg}{ColorFill.END}%')
+            print(f'{ColorFill.RED}Accuracy: {acc_list[-1]}% // epoch:{epoch} // pos|neg:{pos}|{neg}{ColorFill.END}')
 
 
 def train_weights(weight, learning_rate,argw,acc,pos,neg)->set:
