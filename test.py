@@ -1,52 +1,49 @@
-import math 
-import os
 import numpy as np
-import csv 
+from collections import Counter
 
+def adaptive_weighted_knn(X_train, y_train, X_test, k):
+    y_pred = []
+    for test_point in X_test:
+        distances = []
+        for train_point in X_train:
+            distance = np.sqrt(np.sum((test_point - train_point) ** 2))  # 計算歐氏距離
+            distances.append(distance)
+        distances = np.array(distances)
+        sorted_indices = np.argsort(distances)
+        k_nearest_distances = distances[sorted_indices[:k]]
+        k_nearest_labels = y_train[sorted_indices[:k]]
 
-DataSet = ""
-filepath = f"{os.getcwd()}/data_set/"
+        # 計算每個鄰居的權重
+        weights = 1 / (k_nearest_distances + 1e-10)  # 避免除以零
 
+        # 計算加權的類別
+        weighted_labels = []
+        for label, weight in zip(k_nearest_labels, weights):
+            weighted_labels.extend([label] * int(weight))  # 將權重分配給相應的類別
 
+        # 如果加權的類別列表不為空，則進行預測
+        if weighted_labels:
+            # 使用Counter計算每個類別的加權數量
+            weighted_counter = Counter(weighted_labels)
 
+            # 選擇加權最多的類別作為預測
+            predicted_label = weighted_counter.most_common(1)[0][0]
+            y_pred.append(predicted_label)
+        else:
+            # 如果加權的類別列表為空，則將預測標籤設置為 None 或其他值
+            y_pred.append(None)
 
+    return np.array(y_pred)
 
-def readfile(fp,mode)->list:
-    with open(file = fp+"/"+mode+".csv", mode = 'r',newline='') as f:
-        raw_data = csv.reader(f)
-        data = []
-        next(raw_data)
-        for row in raw_data:
-            data.append(list(map(float,row)))
-        return data
-    
+# 示例數據
+X_train = np.array([[1, 2],
+                    [2, 3],
+                    [3, 4],
+                    [4, 5]])
+y_train = np.array([0, 0, 1, 1])
+X_test = np.array([[2, 4]])
 
-import pandas as pd
-
-def data_cleaning(a):
-    total = 0
-    quantity = 0
-    a=[]
-    for i in data:
-        total += i[3] if i[3] != 0 else 0
-        quantity += 1 if i[3] != 0 else 0
-    avg = total/quantity
-    for i in data:
-        i[3]=avg if i[3] == 0 else i[3]
-    for i in data:
-        a.append(round(i[3],0))
-    a = pd.DataFrame(a)
-    Q1 = a.quantile(0.25)
-    Q3 = a.quantile(0.75)
-    IQR = Q3 - Q1
-    a = a[~((a < (Q1 - 1.5 * IQR)) | (a > (Q3 + 1.5 * IQR))).any(axis=1)]
-
-    return a.values.tofile("output.csv", sep=",", format="%s")
-
-if __name__ == '__main__':
-    DataSet = str(input("Enter the dataset you want to use(A/B):")).upper()
-    filepath+= DataSet
-    data = readfile(filepath,"train")
-    
-    data_cleaning(data)
-    
+# 調用自適應加權KNN函數
+k = 3
+y_pred = adaptive_weighted_knn(X_train, y_train, X_test, k)
+print("Predicted Label:", y_pred)
