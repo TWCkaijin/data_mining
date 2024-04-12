@@ -12,14 +12,11 @@ filepath = f"{os.getcwd()}/data_set/"
 
 def readfile(fp,uses,mode):
     with open(file = fp+"/"+uses+".csv", mode = 'r',newline='') as f:
-        print(fp+"/"+uses+".csv")
         raw_data = csv.reader(f)
         next(raw_data)
-        print(uses,mode)
         if(mode == "x"):    
             if uses == "train":
                 X_train = []
-                print("11111")
                 for row in raw_data:
                     X_train.append(list(map(float,row[:-1])))
                 return data_cleaning(X_train)
@@ -108,14 +105,12 @@ if __name__ == '__main__':
     print(y_test)
     '''
 
-    rf_classifier = RandomForestClassifier()
+    rf_classifier = RandomForestClassifier(class_weight='balanced')
 
 
     rf_classifier.fit(X_train, y_train)
 
-    # Make predictions on the testing data
     y_pred = rf_classifier.predict(X_test)
 
-    # Evaluate the accuracy of the classifier
     accuracy = accuracy_score(y_test, y_pred)
     print("Accuracy:", accuracy)
