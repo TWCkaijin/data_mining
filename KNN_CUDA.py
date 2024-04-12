@@ -3,6 +3,8 @@ import os
 import csv 
 import pandas as pd
 import numpy as np
+import numba as nb
+from numba.typed import List
 ##We're not considering "Overfitting" cases in this code
 
 class ColorFill:
@@ -21,8 +23,10 @@ filepath = f"{os.getcwd()}/data_set/"
 y_true = np.array([])
 weight = np.zeros(8)  #8
 normal_bias = np.ones((8,2))  #6
-acc_list = []  #Accuracy list
-weight_mem = []  #Weight memory
+acc_list = List()  #Accuracy list
+weight_mem = List()  #Weight memory
+
+
 def readfile(fp,mode):
     global y_true
     with open(file = fp+"/"+mode+".csv", mode = 'r',newline='') as f:
@@ -37,11 +41,10 @@ def readfile(fp,mode):
                 data.append(list(map(float,row[:-1])))
                 y_true=np.append(y_true,int(row[-1]))
 
-        return data_cleaning(data)
+        return data
 
-
-def data_cleaning(data)->np.array:
-    
+def data_cleaning(data):
+    avg = float()
     for describe in range(1,len(data[0])-2):
         total = 0
         quantity = 0
@@ -60,20 +63,24 @@ def data_cleaning(data)->np.array:
         temp = []
         for i in data:
             temp.append(round(i[describe],2))
-        data = quantilize(np.array(data),avg,describe,temp)
+
+    return data,avg
+
+def deliver(avg,data):
+    print(data)
     for j in [0,len(data[0])-2,len(data[0])-1] if len(data[0])==9 else [0,len(data[0])-1]:
-        temp = []
+        temp = List()
         for i in data:
             temp.append(round(i[j],2))
         data = normalize(data,j,temp)
-    
-    
+
+    for describe in range(1,len(data[0])-2): 
+        data = quantilize(np.array(data),avg,describe,temp)
+
     return data
 
 
-
-
-def quantilize(data,avg,row,temp)->np.array:
+def quantilize(data,avg,row,temp):
     
     temp = pd.DataFrame(temp)
     Q1 = temp.quantile(0.25).values.tolist()[0]
@@ -82,8 +89,7 @@ def quantilize(data,avg,row,temp)->np.array:
     temp = list(map(lambda x : avg if (x < (Q1 - 1.5 * IQR)) | (x > (Q3 + 1.5 * IQR)) else x, temp.values.flatten().tolist()))
     return normalize(data,row,temp)
 
-
-def normalize(data,row,temp)->np.array:
+def normalize(data,row,temp):
     temp_max = max(temp)
     temp_min = min(temp)
     NORMAL = temp_max - temp_min
@@ -94,19 +100,20 @@ def normalize(data,row,temp)->np.array:
     return np.array(data)
 
 
-def neighbor(train,test,k)->list:
-    DistanceSet = []
+def neighbor(train,test,k):
+    DistanceSet = List()
     for i in range(len(train)):
         DistanceSet.append((distance(train[i],test),train[i]))
     DistanceSet.sort(key=lambda x:x[0])
-    return DistanceSet[:k]
-
+    a = DistanceSet[:k]
+    return a
 
 def distance(point1, point2)->float:
     length = 0
     for i in range(len(point1[:-1])):
        length += (float(point1[i]) - float(point2[i])) ** 2 * weight[i]
-    return math.sqrt(length)
+    length = math.sqrt(length)
+    return length
     
 def outcome(result)->int:
     cond = {}
@@ -125,9 +132,15 @@ def validation(k,epochs):
     global weight
     global y_true
     global weight_mem
+    print("IN")
     train_data= readfile(filepath,"train")
-    
+    print(train_data)
+    train_data,avg = data_cleaning(train_data)
+    deliver(avg,train_data)
     ValidData= readfile(filepath,"valid")
+    ValidData,avg = data_cleaning(ValidData)
+    deliver(avg,ValidData)
+    print("IN")
     for basic_bias in range(5):
         print(f"{ColorFill.BLUE}Basic_bias = {basic_bias}{ColorFill.END}")
         weight = [basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias]
@@ -158,7 +171,7 @@ def train_weights(k,epochs,train_data,ValidData)->float:  #->double:
         
         correction=0
         quantity=0
-        prediction = []
+        prediction = List()
         for n in range(len(ValidData)):
             results = outcome(neighbor(train_data,ValidData[n],k))
             prediction.append(results)
@@ -175,8 +188,6 @@ def test(k):
     #print(f"Predicted class: {"無糖尿病"if results == 0 else "有糖尿病"}")
 
 
-
-
 if __name__ == '__main__':
     MODE = str(input("Enter the mode you want to use(1.test  2.valid):"))
     DataSet = str(input("Enter the dataset you want to use(A/B):")).upper()
@@ -187,8 +198,6 @@ if __name__ == '__main__':
         test(k_times)
     elif MODE == "2":
         validation(k_times,epochs)
-
-    f'{ColorFill.GREEN}Accuracy: {acc_list[-1]}%{ColorFill.END}'
     best_weight = []
     for j in range(len(acc_list)):
         for i in range(len(acc_list[j])):
@@ -202,3 +211,5 @@ if __name__ == '__main__':
     
     print(f'{ColorFill.GREEN}Best Weight: {best_weight}{ColorFill.END}')
     #weight = train_weights(data, labels, weight, learning_rate, epochs)
+
+   
