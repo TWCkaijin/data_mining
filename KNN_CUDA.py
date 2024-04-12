@@ -99,21 +99,19 @@ def normalize(data,row,temp):
         data[j][row] = round((temp[j]-temp_min)/NORMAL,4)
     return np.array(data)
 
-
-def neighbor(train,test,k):
-    DistanceSet = List()
+@nb.jit()
+def neighbor(train,test,k,weight):
+    DistanceSet = List([[]])
     for i in range(len(train)):
-        DistanceSet.append((distance(train[i],test),train[i]))
+        length = 0
+        for j in range(len(train[i][:-1])):
+            length += (float(train[i][j]) - float(test[j])) ** 2 * weight[i]
+        length = math.sqrt(length)
+        DistanceSet.append([length,train[i]])
     DistanceSet.sort(key=lambda x:x[0])
     a = DistanceSet[:k]
     return a
 
-def distance(point1, point2)->float:
-    length = 0
-    for i in range(len(point1[:-1])):
-       length += (float(point1[i]) - float(point2[i])) ** 2 * weight[i]
-    length = math.sqrt(length)
-    return length
     
 def outcome(result)->int:
     cond = {}
@@ -166,14 +164,13 @@ def validation(k,epochs):
             
 
 def train_weights(k,epochs,train_data,ValidData)->float:  #->double:
-    
+    global weight
     for epoch in range(1,epochs+1):
-        
         correction=0
         quantity=0
         prediction = List()
         for n in range(len(ValidData)):
-            results = outcome(neighbor(train_data,ValidData[n],k))
+            results = outcome(neighbor(train_data,ValidData[n],k,weight))
             prediction.append(results)
             #print(f"No.{quantity} Predicted class: {"無糖尿病"if results == 0 else "有糖尿病"}\tActual class: {"無糖尿病"if y_true[n] == 0 else "有糖尿病"}")
             correction += 1 if results == y_true[n] else 0
