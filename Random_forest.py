@@ -98,6 +98,7 @@ if __name__ == '__main__':
     X_train, X_test = readfile(filepath,"train","x"), readfile(filepath,"valid","x")
     y_train, y_test = readfile(filepath,"train","y"), readfile(filepath,"valid","y")
 
+    '''
     print(X_train)
 
     print(y_train)
@@ -105,7 +106,7 @@ if __name__ == '__main__':
     print(X_test)
 
     print(y_test)
-
+    '''
 
     rf_classifier = RandomForestClassifier()
 
