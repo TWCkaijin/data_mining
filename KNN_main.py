@@ -131,23 +131,13 @@ def validation(k,epochs):
                 weight[argument-1] = weight_mem[basic_bias][argument-1][acc_list[basic_bias][argument-1].index(max(acc_list[basic_bias][argument-1]))]
             except Exception as e:
                 print(e)
-            acc = train_weights(k,epochs,train_data,ValidData)
-            weight[argument] += 0.05
-            try:
-                acc_list[basic_bias][argument].append(acc)
-                weight_mem[basic_bias][argument].append(weight[argument])
-            except:
-                try:
-                    acc_list[basic_bias].append([acc])
-                    weight_mem[basic_bias].append([weight[argument]])
-                except:
-                    acc_list.append([[acc]])
-                    weight_mem.append([[weight[argument]]])
+            train_weights(k,epochs,train_data,ValidData,argument,basic_bias)
             
-def train_weights(k,epochs,train_data,ValidData)->float:  #->double:
+            
+def train_weights(k,epochs,train_data,ValidData,argument,basic_bias):  #->double:
     
     for epoch in range(1,epochs+1):
-        
+        weight[argument]+=0.05
         correction=0
         quantity=0
         prediction = []
@@ -157,9 +147,24 @@ def train_weights(k,epochs,train_data,ValidData)->float:  #->double:
             #print(f"No.{quantity} Predicted class: {"無糖尿病"if results == 0 else "有糖尿病"}\tActual class: {"無糖尿病"if y_true[n] == 0 else "有糖尿病"}")
             correction += 1 if results == y_true[n] else 0
             quantity += 1
-        
+
         print(f'{ColorFill.RED}Accuracy: {correction/quantity*100.0}% // epoch:{epoch} {ColorFill.END}')
-    return correction/quantity*100.0
+        acc = correction/quantity*100.0
+        try:
+            #print(acc_list)
+            acc_list[basic_bias][argument].append(acc)
+            weight_mem[basic_bias][argument].append(weight[argument])
+        except Exception as e:
+            #print(f'2:{e}')
+            try:
+                acc_list[basic_bias].append([acc])
+                weight_mem[basic_bias].append([weight[argument]])
+            except Exception as ex:
+                #print(f'3:{ex}')
+                acc_list.append([[acc]])
+                weight_mem.append([[weight[argument]]])
+        #print(weight_mem)
+    #return correction/quantity*100.0
 
 def test(k):
     test_data = input("Enter the test data:").split(",")
@@ -177,17 +182,30 @@ if __name__ == '__main__':
     elif MODE == "2":
         validation(k_times,epochs)
 
-    f'{ColorFill.GREEN}Accuracy: {acc_list[-1]}%{ColorFill.END}'
+    print(f'{ColorFill.GREEN}Accuracy: {acc_list}{ColorFill.END}')
+    print(f'{ColorFill.GREEN}Weight Memory: {weight_mem}{ColorFill.END}')
+    
     best_weight = []
-    for j in range(len(acc_list)):
-        for i in range(len(acc_list[j])):
-            best_weight[i] = weight_mem[i][acc_list[i].index(max(acc_list[i]))]
+    bp = [0,0,0,0,0,0,0,0]
+    for i in range(len(acc_list[0])):
+        for j in range(len(acc_list)):
+            try:
+                best_weight[i] = best_weight[i]
+            except :
+                best_weight.append(0)
+                #print("append")
+
+            if max(acc_list[j][i]) > bp[i] :
+                
+                bp[i] = max(acc_list[j][i])
+                best_weight[i] = round(weight_mem[j][i][acc_list[j][i].index(bp[i])],2)
+                #print(best_weight)
 
 
     train_data = readfile(filepath,"train")
     ValidData = readfile(filepath,"valid")
-    train_weights(0,k_times,epochs,train_data,ValidData)
-    
+    train_weights(k_times,1,train_data,ValidData,0,0)
+    #print(best_weight)
     
     print(f'{ColorFill.GREEN}Best Weight: {best_weight}{ColorFill.END}')
     #weight = train_weights(data, labels, weight, learning_rate, epochs)

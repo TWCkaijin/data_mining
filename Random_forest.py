@@ -11,6 +11,7 @@ DataSet = ""
 normal_bias = np.ones((8,2))
 filepath = f"{os.getcwd()}/data_set/"
 
+
 def readfile(fp,uses,mode):
     with open(file = fp+"/"+uses+".csv", mode = 'r',newline='') as f:
         raw_data = csv.reader(f)
