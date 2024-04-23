@@ -39,7 +39,6 @@ def readfile(fp,mode):
 
         return data_cleaning(data)
 
-
 def data_cleaning(data)->np.array:
     
     for describe in range(1,len(data[0])-2):
@@ -70,9 +69,6 @@ def data_cleaning(data)->np.array:
     
     return data
 
-
-
-
 def quantilize(data,avg,row,temp)->np.array:
     
     temp = pd.DataFrame(temp)
@@ -81,7 +77,6 @@ def quantilize(data,avg,row,temp)->np.array:
     IQR = Q3 - Q1
     temp = list(map(lambda x : avg if (x < (Q1 - 1.5 * IQR)) | (x > (Q3 + 1.5 * IQR)) else x, temp.values.flatten().tolist()))
     return normalize(data,row,temp)
-
 
 def normalize(data,row,temp)->np.array:
     temp_max = max(temp)
@@ -93,14 +88,12 @@ def normalize(data,row,temp)->np.array:
         data[j][row] = round((temp[j]-temp_min)/NORMAL,4)
     return np.array(data)
 
-
 def neighbor(train,test,k)->list:
     DistanceSet = []
     for i in range(len(train)):
         DistanceSet.append((distance(train[i],test),train[i]))
     DistanceSet.sort(key=lambda x:x[0])
     return DistanceSet[:k]
-
 
 def distance(point1, point2)->float:
     length = 0
@@ -151,7 +144,6 @@ def validation(k,epochs):
                     acc_list.append([[acc]])
                     weight_mem.append([[weight[argument]]])
             
-
 def train_weights(k,epochs,train_data,ValidData)->float:  #->double:
     
     for epoch in range(1,epochs+1):
@@ -173,9 +165,6 @@ def test(k):
     test_data = input("Enter the test data:").split(",")
     results = outcome(neighbor(test_data,test_data,k_times))
     #print(f"Predicted class: {"無糖尿病"if results == 0 else "有糖尿病"}")
-
-
-
 
 if __name__ == '__main__':
     MODE = str(input("Enter the mode you want to use(1.test  2.valid):"))

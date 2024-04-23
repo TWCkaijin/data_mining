@@ -1,10 +1,11 @@
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
 import numpy as np
 import csv
 import pandas as pd
 import os
+
 
 DataSet = ""
 normal_bias = np.ones((8,2))
@@ -39,7 +40,6 @@ def readfile(fp,uses,mode):
                 for row in raw_data:
                     y_test.append(int(row[-1]))
                 return y_test
-
 
 def data_cleaning(data)->np.array:
     
@@ -91,26 +91,23 @@ def normalize(data,row,temp)->np.array:
 if __name__ == '__main__':
     DataSet = str(input("Enter the dataset you want to use(A/B):")).upper()
     filepath+= DataSet   
-
+    
     X_train, X_test = readfile(filepath,"train","x"), readfile(filepath,"valid","x")
     y_train, y_test = readfile(filepath,"train","y"), readfile(filepath,"valid","y")
+    test_range = (np.arange(int(input("input the max range")))+1)*10
+    x_tag = [str(n) for n in test_range]
+    accuracy = []
+    for t in test_range:
+        rf_classifier = RandomForestClassifier(class_weight='balanced',max_depth=3,random_state=0,n_estimators=t)
+        rf_classifier.fit(X_train, y_train)
+        y_pred = rf_classifier.predict(X_test)
 
-    '''
-    print(X_train)
+        accuracy.append(accuracy_score(y_test, y_pred))
 
-    print(y_train)
-
-    print(X_test)
-
-    print(y_test)
-    '''
-
-    rf_classifier = RandomForestClassifier(class_weight='balanced')
-
-
-    rf_classifier.fit(X_train, y_train)
-
-    y_pred = rf_classifier.predict(X_test)
-
-    accuracy = accuracy_score(y_test, y_pred)
+    plt.title("Random forest test")
+    plt.plot(x_tag,accuracy,label='RF score')
+    plt.xlabel("Trees quantities")
+    plt.ylabel("accuracy")
+    plt.legend()
+    plt.show()
     print("Accuracy:", accuracy)
