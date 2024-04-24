@@ -23,6 +23,8 @@ weight = np.zeros(8)  #8
 normal_bias = np.ones((8,2))  #6
 acc_list = []  #Accuracy list
 weight_mem = []  #Weight memory
+bias_w_mem = []
+bias_acc_mem = []
 def readfile(fp,mode):
     global y_true
     with open(file = fp+"/"+mode+".csv", mode = 'r',newline='') as f:
@@ -118,10 +120,12 @@ def validation(k,epochs):
     global weight
     global y_true
     global weight_mem
+    global bias_w_mem
+    global bias_acc_mem
     train_data= readfile(filepath,"train")
     
     ValidData= readfile(filepath,"valid")
-    for basic_bias in range(2):
+    for basic_bias in range(5):
         print(f"{ColorFill.BLUE}Basic_bias = {basic_bias}{ColorFill.END}")
         weight = [basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias]
         for argument in range(len(weight)):
@@ -134,6 +138,13 @@ def validation(k,epochs):
                 train_weights(k,1,train_data,ValidData,argument+1,basic_bias,0)
             except Exception as e:
                 print(e)
+        bias_w_mem.append(weight)
+        bias_acc_mem.append(max(acc_list[basic_bias][len(weight)-1]))
+
+    weight = bias_w_mem[bias_acc_mem.index(max(bias_acc_mem))]
+    print(f'{ColorFill.RED}Best ',end="")
+    train_weights(k_times,1,train_data,ValidData,0,0,0)
+    print(f'{ColorFill.GREEN}Best Weight: {weight}{ColorFill.END}')
             
             
             
@@ -187,9 +198,9 @@ if __name__ == '__main__':
     elif MODE == "2":
         validation(k_times,epochs)
 
-    print(f'{ColorFill.GREEN}Accuracy: {acc_list}{ColorFill.END}')
-    print(f'{ColorFill.GREEN}Weight Memory: {weight_mem}{ColorFill.END}')
-    
+    #print(f'{ColorFill.GREEN}Accuracy: {acc_list}{ColorFill.END}')
+    #print(f'{ColorFill.GREEN}Weight Memory: {weight_mem}{ColorFill.END}')
+    '''
     best_weight = []
     bp = [0,0,0,0,0,0,0,0]
     for i in range(len(acc_list[0])):
@@ -210,7 +221,7 @@ if __name__ == '__main__':
     train_data = readfile(filepath,"train")
     ValidData = readfile(filepath,"valid")
     train_weights(k_times,1,train_data,ValidData,0,0,0)
-    #print(best_weight)
+    print(best_weight)
     
-    print(f'{ColorFill.GREEN}Best Weight: {best_weight}{ColorFill.END}')
-    #weight = train_weights(data, labels, weight, learning_rate, epochs)
+    print(f'{ColorFill.GREEN}Best Weight: {weight}{ColorFill.END}')
+    '''
