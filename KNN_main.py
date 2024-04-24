@@ -121,23 +121,27 @@ def validation(k,epochs):
     train_data= readfile(filepath,"train")
     
     ValidData= readfile(filepath,"valid")
-    for basic_bias in range(5):
+    for basic_bias in range(2):
         print(f"{ColorFill.BLUE}Basic_bias = {basic_bias}{ColorFill.END}")
         weight = [basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias]
         for argument in range(len(weight)):
             print(f"{ColorFill.GREEN}arg={argument}{ColorFill.END}")
+            train_weights(k,epochs,train_data,ValidData,argument,basic_bias,0.05)
             try:
                 #print(acc_list)
-                weight[argument-1] = weight_mem[basic_bias][argument-1][acc_list[basic_bias][argument-1].index(max(acc_list[basic_bias][argument-1]))]
+                weight[argument] = round(weight_mem[basic_bias][argument][acc_list[basic_bias][argument].index(max(acc_list[basic_bias][argument]))],2)
+                print("SUMMARY:")
+                train_weights(k,1,train_data,ValidData,argument+1,basic_bias,0)
             except Exception as e:
                 print(e)
-            train_weights(k,epochs,train_data,ValidData,argument,basic_bias)
             
             
-def train_weights(k,epochs,train_data,ValidData,argument,basic_bias):  #->double:
-    
+            
+def train_weights(k,epochs,train_data,ValidData,argument,basic_bias,train_rate):  #->double:
+    global weight_mem
+    global weight
     for epoch in range(1,epochs+1):
-        weight[argument]+=0.05
+        weight[argument]+=train_rate
         correction=0
         quantity=0
         prediction = []
@@ -149,7 +153,9 @@ def train_weights(k,epochs,train_data,ValidData,argument,basic_bias):  #->double
             quantity += 1
 
         print(f'{ColorFill.RED}Accuracy: {correction/quantity*100.0}% // epoch:{epoch} {ColorFill.END}')
+        #print(weight)
         acc = correction/quantity*100.0
+
         try:
             #print(acc_list)
             acc_list[basic_bias][argument].append(acc)
@@ -164,7 +170,6 @@ def train_weights(k,epochs,train_data,ValidData,argument,basic_bias):  #->double
                 acc_list.append([[acc]])
                 weight_mem.append([[weight[argument]]])
         #print(weight_mem)
-    #return correction/quantity*100.0
 
 def test(k):
     test_data = input("Enter the test data:").split(",")
@@ -204,7 +209,7 @@ if __name__ == '__main__':
 
     train_data = readfile(filepath,"train")
     ValidData = readfile(filepath,"valid")
-    train_weights(k_times,1,train_data,ValidData,0,0)
+    train_weights(k_times,1,train_data,ValidData,0,0,0)
     #print(best_weight)
     
     print(f'{ColorFill.GREEN}Best Weight: {best_weight}{ColorFill.END}')
