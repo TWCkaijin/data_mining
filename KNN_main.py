@@ -63,7 +63,7 @@ def data_cleaning(data)->np.array:
         for i in data:
             temp.append(round(i[describe],2))
         data = quantilize(np.array(data),avg,describe,temp)
-    for j in [0,len(data[0])-2,len(data[0])-1] if len(data[0])==9 else [0,len(data[0])-1]:
+    for j in [0,len(data[0])-2,len(data[0])-1]: #if len(data[0])==9 else [0,len(data[0])-1]:
         temp = []
         for i in data:
             temp.append(round(i[j],2))
@@ -127,23 +127,27 @@ def validation(k,epochs):
     
     ValidData= readfile(filepath,"valid")
     turns = [i for i in range(len(weight))]
-    for basic_bias in range(1):
+    for basic_bias in range(5):
         print(f"{ColorFill.BLUE}Basic_bias = {basic_bias}{ColorFill.END}")
         weight = [basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias]
         random.shuffle(turns)
         
         for argument,tm in zip(turns,range(len(weight))):
             print(f"{ColorFill.GREEN}arg={argument}{ColorFill.END}")
-            train_weights(k,epochs,train_data,ValidData,argument,basic_bias,0.05,tm)
+            train_weights(k,epochs,train_data,ValidData,argument,basic_bias,0.5,tm)
             try:
-                print(argument,"////",tm)
-                print(weight_mem)
-                print(acc_list)
-                weight[argument] = round(weight_mem[basic_bias][tm][acc_list[basic_bias][tm].index(max(acc_list[basic_bias][tm]))],2)
+                if acc_list[basic_bias][tm][0]>max(acc_list[basic_bias][tm][1:]):
+                    weight[argument] = basic_bias
+                    print("IN")
+                    pass
+                else:
+                    weight[argument] = round(weight_mem[basic_bias][tm][acc_list[basic_bias][tm].index(max(acc_list[basic_bias][tm]))],2)
                 print("SUMMARY:")
                 train_weights(k,1,train_data,ValidData,argument,basic_bias,0,tm+1 if tm+1 < len(weight) else tm)
+                print("\n\n")
             except Exception as e:
-                print(e)
+                #print(e)
+                pass
         bias_w_mem.append(weight)
         bias_acc_mem.append(max(acc_list[basic_bias][len(weight)-1]))
 
@@ -178,12 +182,12 @@ def train_weights(k,epochs,train_data,ValidData,argument,basic_bias,train_rate,t
             acc_list[basic_bias][tm].append(acc)
             weight_mem[basic_bias][tm].append(weight[argument])
         except Exception as e:
-            print(f'2:{e}')
+            #print(f'2:{e}')
             try:
                 acc_list[basic_bias].append([acc])
                 weight_mem[basic_bias].append([weight[argument]])
             except Exception as ex:
-                print(f'3:{ex}')
+                #print(f'3:{ex}')
                 acc_list.append([[acc]])
                 weight_mem.append([[weight[argument]]])
         #print(weight_mem)
@@ -203,31 +207,3 @@ if __name__ == '__main__':
         test(k_times)
     elif MODE == "2":
         validation(k_times,epochs)
-
-    #print(f'{ColorFill.GREEN}Accuracy: {acc_list}{ColorFill.END}')
-    #print(f'{ColorFill.GREEN}Weight Memory: {weight_mem}{ColorFill.END}')
-    '''
-    best_weight = []
-    bp = [0,0,0,0,0,0,0,0]
-    for i in range(len(acc_list[0])):
-        for j in range(len(acc_list)):
-            try:
-                best_weight[i] = best_weight[i]
-            except :
-                best_weight.append(0)
-                #print("append")
-
-            if max(acc_list[j][i]) > bp[i] :
-                
-                bp[i] = max(acc_list[j][i])
-                best_weight[i] = round(weight_mem[j][i][acc_list[j][i].index(bp[i])],2)
-                #print(best_weight)
-
-
-    train_data = readfile(filepath,"train")
-    ValidData = readfile(filepath,"valid")
-    train_weights(k_times,1,train_data,ValidData,0,0,0)
-    print(best_weight)
-    
-    print(f'{ColorFill.GREEN}Best Weight: {weight}{ColorFill.END}')
-    '''

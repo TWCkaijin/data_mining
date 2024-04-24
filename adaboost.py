@@ -1,5 +1,7 @@
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import AdaBoostClassifier
 from sklearn.metrics import accuracy_score
+
+
 import matplotlib.pyplot as plt
 import numpy as np
 import csv
@@ -113,18 +115,18 @@ if __name__ == '__main__':
     #print(yy_train)
 
     for t in test_range:
-        rf_classifier = RandomForestClassifier(class_weight='balanced',max_depth=3,n_estimators=t,random_state=0,n_jobs=-1)
-        rf_classifier.fit(Train, Ay_train+By_train)
-        Ay_pred = rf_classifier.predict(AX_test)
-        By_pred = rf_classifier.predict(BX_test)
+        ada_classifier = AdaBoostClassifier(n_estimators=t, algorithm='SAMME', learning_rate=1, random_state=0)
+        ada_classifier.fit(Train, Ay_train+By_train)
+        Ay_pred = ada_classifier.predict(AX_test)
+        By_pred = ada_classifier.predict(BX_test)
 
         accuracy.append(accuracy_score(Ay_test, Ay_pred))
         Xaccuracy.append(accuracy_score(By_test, By_pred))
 
-    plt.title("Random forest test A")
+    plt.title("Ada boost")
     plt.plot(x_tag,accuracy,label='A score',color='red')
     plt.plot(x_tag,Xaccuracy,label='B score',color='blue')
-    plt.xlabel("Trees quantities")
+    plt.xlabel("Ada boost n_estimators")
     plt.ylabel("accuracy")
     plt.legend()
     plt.show()
