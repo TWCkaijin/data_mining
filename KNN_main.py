@@ -3,6 +3,7 @@ import os
 import csv 
 import pandas as pd
 import numpy as np
+import random
 ##We're not considering "Overfitting" cases in this code
 
 class ColorFill:
@@ -125,17 +126,22 @@ def validation(k,epochs):
     train_data= readfile(filepath,"train")
     
     ValidData= readfile(filepath,"valid")
-    for basic_bias in range(5):
+    turns = [i for i in range(len(weight))]
+    for basic_bias in range(1):
         print(f"{ColorFill.BLUE}Basic_bias = {basic_bias}{ColorFill.END}")
         weight = [basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias,basic_bias]
-        for argument in range(len(weight)):
+        random.shuffle(turns)
+        
+        for argument,tm in zip(turns,range(len(weight))):
             print(f"{ColorFill.GREEN}arg={argument}{ColorFill.END}")
-            train_weights(k,epochs,train_data,ValidData,argument,basic_bias,0.05)
+            train_weights(k,epochs,train_data,ValidData,argument,basic_bias,0.05,tm)
             try:
-                #print(acc_list)
-                weight[argument] = round(weight_mem[basic_bias][argument][acc_list[basic_bias][argument].index(max(acc_list[basic_bias][argument]))],2)
+                print(argument,"////",tm)
+                print(weight_mem)
+                print(acc_list)
+                weight[argument] = round(weight_mem[basic_bias][tm][acc_list[basic_bias][tm].index(max(acc_list[basic_bias][tm]))],2)
                 print("SUMMARY:")
-                train_weights(k,1,train_data,ValidData,argument+1,basic_bias,0)
+                train_weights(k,1,train_data,ValidData,argument,basic_bias,0,tm+1 if tm+1 < len(weight) else tm)
             except Exception as e:
                 print(e)
         bias_w_mem.append(weight)
@@ -143,12 +149,12 @@ def validation(k,epochs):
 
     weight = bias_w_mem[bias_acc_mem.index(max(bias_acc_mem))]
     print(f'{ColorFill.RED}Best ',end="")
-    train_weights(k_times,1,train_data,ValidData,0,0,0)
+    train_weights(k_times,1,train_data,ValidData,0,0,0,0)
     print(f'{ColorFill.GREEN}Best Weight: {weight}{ColorFill.END}')
             
             
             
-def train_weights(k,epochs,train_data,ValidData,argument,basic_bias,train_rate):  #->double:
+def train_weights(k,epochs,train_data,ValidData,argument,basic_bias,train_rate,tm):  #->double:
     global weight_mem
     global weight
     for epoch in range(1,epochs+1):
@@ -169,15 +175,15 @@ def train_weights(k,epochs,train_data,ValidData,argument,basic_bias,train_rate):
 
         try:
             #print(acc_list)
-            acc_list[basic_bias][argument].append(acc)
-            weight_mem[basic_bias][argument].append(weight[argument])
+            acc_list[basic_bias][tm].append(acc)
+            weight_mem[basic_bias][tm].append(weight[argument])
         except Exception as e:
-            #print(f'2:{e}')
+            print(f'2:{e}')
             try:
                 acc_list[basic_bias].append([acc])
                 weight_mem[basic_bias].append([weight[argument]])
             except Exception as ex:
-                #print(f'3:{ex}')
+                print(f'3:{ex}')
                 acc_list.append([[acc]])
                 weight_mem.append([[weight[argument]]])
         #print(weight_mem)
