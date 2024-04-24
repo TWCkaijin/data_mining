@@ -121,7 +121,7 @@ if __name__ == '__main__':
         accuracy.append(accuracy_score(Ay_test, Ay_pred))
         Xaccuracy.append(accuracy_score(By_test, By_pred))
 
-    plt.title("Random forest test A")
+    plt.title("Random forest")
     plt.plot(x_tag,accuracy,label='A score',color='red')
     plt.plot(x_tag,Xaccuracy,label='B score',color='blue')
     plt.xlabel("Trees quantities")
