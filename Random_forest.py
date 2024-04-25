@@ -105,15 +105,8 @@ if __name__ == '__main__':
     accuracy = []
     Xaccuracy = []
 
-    #print(X_train)
-    #print(y_train)
-    #print(XX_train)
-    #print(Train)
-    #print(Train[-1][6])
-    #print(yy_train)
-
     for t in test_range:
-        rf_classifier = RandomForestClassifier(class_weight='balanced',max_depth=3,n_estimators=t,random_state=0,n_jobs=-1)
+        rf_classifier = RandomForestClassifier(class_weight='balanced',max_depth=3,n_estimators=t,random_state=0,verbose=1,n_jobs=-1)
         rf_classifier.fit(Train, Ay_train+By_train)
         Ay_pred = rf_classifier.predict(AX_test)
         By_pred = rf_classifier.predict(BX_test)
@@ -124,6 +117,7 @@ if __name__ == '__main__':
     plt.title("Random forest")
     plt.plot(x_tag,accuracy,label='A score',color='red')
     plt.plot(x_tag,Xaccuracy,label='B score',color='blue')
+    plt.xticks(x_tag[::2])
     plt.xlabel("Trees quantities")
     plt.ylabel("accuracy")
     plt.legend()

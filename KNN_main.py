@@ -158,7 +158,7 @@ def validation(k,epochs):
             
             
             
-def train_weights(k,epochs,train_data,ValidData,argument,basic_bias,train_rate,tm):  #->double:
+def train_weights(k,epochs,train_data,ValidData,argument,basic_bias,train_rate,tm):
     global weight_mem
     global weight
     for epoch in range(1,epochs+1):
@@ -169,16 +169,13 @@ def train_weights(k,epochs,train_data,ValidData,argument,basic_bias,train_rate,t
         for n in range(len(ValidData)):
             results = outcome(neighbor(train_data,ValidData[n],k))
             prediction.append(results)
-            #print(f"No.{quantity} Predicted class: {"無糖尿病"if results == 0 else "有糖尿病"}\tActual class: {"無糖尿病"if y_true[n] == 0 else "有糖尿病"}")
             correction += 1 if results == y_true[n] else 0
             quantity += 1
 
         print(f'{ColorFill.RED}Accuracy: {correction/quantity*100.0}% // epoch:{epoch} {ColorFill.END}')
-        #print(weight)
         acc = correction/quantity*100.0
 
         try:
-            #print(acc_list)
             acc_list[basic_bias][tm].append(acc)
             weight_mem[basic_bias][tm].append(weight[argument])
         except Exception as e:
@@ -190,7 +187,6 @@ def train_weights(k,epochs,train_data,ValidData,argument,basic_bias,train_rate,t
                 #print(f'3:{ex}')
                 acc_list.append([[acc]])
                 weight_mem.append([[weight[argument]]])
-        #print(weight_mem)
 
 def test(k):
     test_data = input("Enter the test data:").split(",")

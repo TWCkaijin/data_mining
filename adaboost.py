@@ -107,13 +107,6 @@ if __name__ == '__main__':
     accuracy = []
     Xaccuracy = []
 
-    #print(X_train)
-    #print(y_train)
-    #print(XX_train)
-    #print(Train)
-    #print(Train[-1][6])
-    #print(yy_train)
-
     for t in test_range:
         ada_classifier = AdaBoostClassifier(n_estimators=t, algorithm='SAMME', learning_rate=1, random_state=0)
         ada_classifier.fit(Train, Ay_train+By_train)
@@ -123,9 +116,10 @@ if __name__ == '__main__':
         accuracy.append(accuracy_score(Ay_test, Ay_pred))
         Xaccuracy.append(accuracy_score(By_test, By_pred))
 
-    plt.title("Ada boost")
+    plt.title("AdaBoost")
     plt.plot(x_tag,accuracy,label='A score',color='red')
     plt.plot(x_tag,Xaccuracy,label='B score',color='blue')
+    plt.xticks(x_tag[::2])
     plt.xlabel("Ada boost n_estimators")
     plt.ylabel("accuracy")
     plt.legend()
