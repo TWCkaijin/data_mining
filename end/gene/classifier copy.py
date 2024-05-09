@@ -36,7 +36,7 @@ def read_train()->tuple:
 
 
 
-    return train_data,train_label
+    return Data_preprocessing(train_data,train_label)
 
 def Data_cleaning():
     pass
@@ -56,9 +56,9 @@ def Data_preprocessing(data,label)->tuple:
 def sampling(train_data,train_labels,rate,used):
 
     total_range = np.setdiff1d(len(train_data),used)
-    SI = np.random.choice(len(train_data),int(len(train_data)*rate),replace=False)
+    SI = np.random.choice(total_range,int(len(train_data)*rate),replace=False)
     valid_data , valid_labels = train_data[SI] , train_labels[SI]
-    train_data , train_labels = np.delete(train_data,SI,axis=0) , np.delete(train_labels,SI,axis=0)
+    #train_data , train_labels = np.delete(train_data,SI,axis=0) , np.delete(train_labels,SI,axis=0)
 
     #valid_data=train_data           # same data test 
     #valid_labels=train_labels
@@ -72,8 +72,8 @@ if __name__ == '__main__':
 
     train_data , train_labels = read_train()
 
-    #print(f'Read time :{time.time()-Clock_start}')
-    rate = float(input("Enter the rate of validation data: "))
+    print(f'Read time :{time.time()-Clock_start}')
+    rate = float(input("Enter the rate of validation data(0.X): "))
 
     from keras import layers as kl
     model = tf.keras.Sequential([
@@ -88,17 +88,17 @@ if __name__ == '__main__':
         kl.Dropout(0.2),
         kl.Dense(3, activation='softmax'),
     ])
-
-
-    while(input("keep training? (y/n): ") == 'y'):
+    train_data, train_labels, valid_data, valid_labels, SI, used= sampling(train_data,train_labels,rate,used)
+    train_labels = tf.keras.utils.to_categorical(train_labels,num_classes=3)
+    valid_labels = tf.keras.utils.to_categorical(valid_labels,num_classes=3)
+    while(True):
         
         # 抽樣
-        train_data, train_labels, valid_data, valid_labels, SI, used= sampling(train_data,train_labels,rate,used)
+        
 
 
         #轉換標籤為"標籤位置"的形式
-        train_labels = tf.keras.utils.to_categorical(train_labels,num_classes=3)
-        valid_labels = tf.keras.utils.to_categorical(valid_labels,num_classes=3)
+        
         print(valid_labels)
         
 
@@ -106,7 +106,7 @@ if __name__ == '__main__':
         model.summary()
         input("Start training")
 
-        model.compile(optimizer='adadelta', loss='categorical_crossentropy', metrics=['accuracy'])
+        model.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['accuracy'])
         model.fit(train_data, train_labels,validation_split=0.2, epochs=40, verbose=1, shuffle=True)
         #loaded_model = tf.keras.models.load_model('model.h5')
 
@@ -116,7 +116,9 @@ if __name__ == '__main__':
         f.close()
         print("Validation Accuracy: ",sum(valid_predict.argmax(axis=1)==valid_labels.argmax(axis=1))/len(valid_labels))
         #model.layers[0].trainable = False
-        
+        if(input("keep training? (y/n): ") != 'y'):
+            break
+        train_data, train_labels, valid_data, valid_labels, SI, used= sampling(train_data,train_labels,rate,used)
 
     print(f'Time taken: {time.time()-Clock_start}')
     cond = input("save model? (y/n): ")
