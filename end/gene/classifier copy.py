@@ -3,30 +3,19 @@ import pandas as pd
 import tensorflow as tf
 import time
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' #TF 通知設定
+os.environ['CUDA_VISIBLE_DEVICES'] = '0' #TF GPU 參數設定
 
 # gloabl
 model_name = "gene"
 
-class Color:
-    PURPLE = '\033[95m'
-    CYAN = '\033[96m'
-    DARKCYAN = '\033[36m'
-    BLUE = '\033[94m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    END = '\033[0m'
 
 def read_test()->tuple:
     label_dict = dict()
-    FT = open(f'{os.getcwd()}/{model_name}/train_data.csv','r')
+    FT = open(f'{os.getcwd()}/{model_name}/test_data.csv','r')
     data = np.genfromtxt(FT,delimiter=',',dtype='float32',filling_values=0.0)[1:]
 
-    FL = open(f'{os.getcwd()}/{model_name}/train_label.csv','r')
+    FL = open(f'{os.getcwd()}/{model_name}/test_label.csv','r')
     label = np.genfromtxt(FL,delimiter=',',dtype='str')
     label = pd.DataFrame(label)
     label = label.drop(0,axis=1).to_numpy()[1:]
@@ -63,14 +52,17 @@ def Data_cleaning():
 def Data_preprocessing(data,label)->tuple:
     temp = pd.DataFrame(data)
 
-    # Missing value
+    # Missing value delete
+    '''
     for i in range(len(temp.columns)):
         if (temp.loc[:,i] == 0).all():
             temp = temp.drop(i,axis=1)
-
+    '''
     # Normalization
     data = temp.to_numpy()
-    data = (data - np.min(data,axis=0))/((np.max(data,axis=0)-np.min(data,axis=0)) )
+    data = (data - np.min(data,axis=0))/((np.max(data,axis=0)-np.min(data,axis=0)) ) 
+    # Missing value handling
+    data[np.isnan(data)] = 0
     return data , label
 
 def sampling(train_data,train_labels,rate,used):
@@ -78,8 +70,6 @@ def sampling(train_data,train_labels,rate,used):
     total_range = np.setdiff1d(np.arange(len(train_data)),used)
     SI = np.random.choice(total_range,int(len(train_data)*rate),replace=False)
     valid_data , valid_labels = train_data[SI] , train_labels[SI]
-    #train_data , train_labels = np.delete(train_data,SI,axis=0) , np.delete(train_labels,SI,axis=0)
-
     return train_data , train_labels , valid_data , valid_labels , np.concatenate((SI,used),axis=0) , SI
 
 
@@ -105,7 +95,7 @@ def Data_aug(data,label):
         if add_quan <= 0:
             continue
         for j in np.random.choice(a=ans_sheet[i],size = add_quan):
-            temp = np.array([(ans_avg[i] + data[j])*0.5])#(data[j]-ans_avg[i])*np.random.random(1))])
+            temp = np.array([(ans_avg[i] + data[j])*0.5])
             data = np.concatenate((data,temp),axis=0)
             label = np.concatenate((label,np.array([[i]])),axis=0)
 
@@ -136,12 +126,11 @@ if __name__ == '__main__':
     print(f'Read time :{time.time()-Clock_start}')
 
 
-    from tensorflow.keras.optimizers import Adam
     from tensorflow.keras.layers import Dense, Dropout,BatchNormalization
     from tensorflow.keras.callbacks import EarlyStopping
 
     model = tf.keras.Sequential([
-        Dense(1024, input_dim=20242,activation='relu'),
+        Dense(1024, input_dim=train_data.shape[1],activation='relu'),
         BatchNormalization(),
         Dropout(0.5),
 
@@ -180,6 +169,11 @@ if __name__ == '__main__':
 
         loss, acc = model.evaluate(valid_data, valid_labels, verbose=2)
         print("Validation loss: ",loss,"   Accuracy",acc)
+        print("Test Accuracy: ",sum(valid_predict.argmax(axis=1)==test_label.argmax(axis=1))/len(test_label))
+
+        test_compare = valid_predict.argmax(axis=1)!=test_label.argmax(axis=1)
+
+        print("Test:" , valid_predict[test_compare],test_label[test_compare])
 
         if(input("keep training? (y/n): ") != 'y'):
             break
