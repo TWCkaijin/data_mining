@@ -4,6 +4,8 @@ import tensorflow as tf
 import time
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
 # gloabl
 model_name = "gene"
 
@@ -60,10 +62,12 @@ def Data_cleaning():
 
 def Data_preprocessing(data,label)->tuple:
     temp = pd.DataFrame(data)
+
     # Missing value
     for i in range(len(temp.columns)):
         if (temp.loc[:,i] == 0).all():
             temp = temp.drop(i,axis=1)
+
     # Normalization
     data = temp.to_numpy()
     data = (data - np.min(data,axis=0))/((np.max(data,axis=0)-np.min(data,axis=0)) )
@@ -76,16 +80,13 @@ def sampling(train_data,train_labels,rate,used):
     valid_data , valid_labels = train_data[SI] , train_labels[SI]
     #train_data , train_labels = np.delete(train_data,SI,axis=0) , np.delete(train_labels,SI,axis=0)
 
-    #valid_data=train_data           # same data test 
-    #valid_labels=train_labels
-
     return train_data , train_labels , valid_data , valid_labels , np.concatenate((SI,used),axis=0) , SI
 
 
 def Data_aug(data,label):
 
     ans_quan = dict()
-    ans_sheet = [[-1],[-1],[-1]] #存放資料的index
+    ans_sheet = [[-1] for x in range(3)] #存放資料的index
 
     for i in range(len(label)):
         if(label[i][0] not in ans_quan):
@@ -104,10 +105,10 @@ def Data_aug(data,label):
         if add_quan <= 0:
             continue
         for j in np.random.choice(a=ans_sheet[i],size = add_quan):
-            temp = np.array([(ans_avg[i] + data[j])*np.random.random(1)])
-            
+            temp = np.array([(ans_avg[i] + data[j])*0.5])#(data[j]-ans_avg[i])*np.random.random(1))])
             data = np.concatenate((data,temp),axis=0)
             label = np.concatenate((label,np.array([[i]])),axis=0)
+
     return data,label
 
 
@@ -121,7 +122,6 @@ if __name__ == '__main__':
 
     #增強
     train_data,train_labels = Data_aug(train_data,train_labels)
-    print(train_data.shape,train_labels.shape)
     
     #隨機抽樣
     train_data, train_labels, valid_data, valid_labels, SI, used= sampling(train_data,train_labels,rate,used)
@@ -135,17 +135,30 @@ if __name__ == '__main__':
 
     print(f'Read time :{time.time()-Clock_start}')
 
-    
-    from keras import layers as kl
+
+    from tensorflow.keras.optimizers import Adam
+    from tensorflow.keras.layers import Dense, Dropout,BatchNormalization
+    from tensorflow.keras.callbacks import EarlyStopping
+
     model = tf.keras.Sequential([
-        kl.InputLayer(input_shape=(train_data.shape[1],)),
-        kl.Dense(4096, activation='softmax'),
-        kl.Dense(512, activation='sigmoid'),
-        kl.Dropout(0.2),
-        kl.Dense(512, activation='softmax'),
-        kl.Dense(512, activation='sigmoid'),
-        kl.Dropout(0.2),
-        kl.Dense(3, activation='softmax'),
+        Dense(1024, input_dim=20242,activation='relu'),
+        BatchNormalization(),
+        Dropout(0.5),
+
+        Dense(512, activation='relu'),
+        BatchNormalization(),
+        Dropout(0.5),
+
+        Dense(3, activation='relu'),
+        BatchNormalization(),
+        Dropout(0.5),
+
+
+        Dense(128, activation='relu'),
+        BatchNormalization(),
+        Dropout(0.5),
+
+        Dense(3, activation='softmax'),
     ])
 
     while(True):
@@ -153,7 +166,9 @@ if __name__ == '__main__':
         model.summary()
         input("Start training")
 
-        model.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+
+        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
         model.fit(train_data, train_labels,epochs=40, verbose=1, shuffle=True)
         #loaded_model = tf.keras.models.load_model('model.h5')
 
@@ -162,7 +177,9 @@ if __name__ == '__main__':
         f.write(str(list(valid_predict)))
         f.close()
 
-        print("Validation Accuracy: ",sum(valid_predict.argmax(axis=1)==test_label.argmax(axis=1))/len(test_label))
+
+        loss, acc = model.evaluate(valid_data, valid_labels, verbose=2)
+        print("Validation loss: ",loss,"   Accuracy",acc)
 
         if(input("keep training? (y/n): ") != 'y'):
             break
@@ -171,4 +188,4 @@ if __name__ == '__main__':
 
     cond = input("save model? (y/n): ")
     if(cond == 'y' or cond == 'Y' ):
-        model.save(f'{os.getcwd()}/{model_name}/{input("Enter the model name: ")}')
+        model.save(f'{os.getcwd()}/{model_name}/model/{input("Enter the model name: ")}')
