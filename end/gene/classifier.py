@@ -3,16 +3,47 @@ import pandas as pd
 import tensorflow as tf
 import time
 import os
+
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' #TF 通知設定
 os.environ['CUDA_VISIBLE_DEVICES'] = '0' #TF GPU 參數設定
+
 
 # gloabl
 model_name = "gene"
 
-cluster_args = np.array([])
+distance_limit = np.array([])
+ans_avg = np.array([])
 
 
-class train:
+class Color:
+    def __init__(self):
+        self.RED = '\033[91m'
+        self.GREEN = '\033[92m'
+        self.YELLOW = '\033[93m'
+        self.BLUE = '\033[94m'
+        self.END = '\033[0m'
+
+class template:
+    def Data_preprocessing(self,data,label)->tuple:
+        temp = pd.DataFrame(data)
+
+        # Normalization
+        data = temp.to_numpy()
+        data = (data - np.min(data,axis=0))/((np.max(data,axis=0)-np.min(data,axis=0)) ) 
+        # Missing value handling
+        data[np.isnan(data)] = 0
+        print("Ignore warning")
+        return data , label
+    
+
+    def distance_count(self,x, y):
+        try:
+            return np.sqrt(np.sum((x - y) ** 2,axis=1))
+        except:
+            return np.sqrt(np.sum((x - y) ** 2))
+
+class train(template):
 
     def __init__(self):
         self.rate = 0.2
@@ -46,17 +77,6 @@ class train:
         return self.Data_preprocessing(train_data,train_label)
 
 
-    def Data_preprocessing(self,data,label)->tuple:
-        temp = pd.DataFrame(data)
-
-        # Normalization
-        data = temp.to_numpy()
-        data = (data - np.min(data,axis=0))/((np.max(data,axis=0)-np.min(data,axis=0)) ) 
-        # Missing value handling
-        data[np.isnan(data)] = 0
-        return data , label
-
-
     def sampling(self,train_data,train_labels):
 
         SI = np.random.choice(np.arange(len(train_data)),int(len(train_data)*self.rate),replace=False)
@@ -76,15 +96,14 @@ class train:
                 ans_quan[label[i][0]]+=1
                 #print(ans_sheet[label[i][0]])
                 ans_sheet[label[i][0]].append(i)
-        
+        global ans_avg
         ans_avg = [np.mean(data[ans_sheet[x]],axis=0) for x in range(3)] # ans_avg 第一維度是類別(3) 第二維度是特徵(20242)
-        farest_data = []
-        for i in range(len(ans_avg)):
-            distances = [self.distance_count(data[ans_sheet[i][j]],ans_avg[i]) for j in range(len(ans_sheet[i]))]
-            farest_data.append(max(distances))
+        global distance_limit
 
-        global cluster_args
-        cluster_args = np.array(farest_data)
+        for i in range(len(ans_avg)):
+            distances = self.distance_count(data[ans_sheet[i]],ans_avg[i])
+            distance_limit = np.concatenate((distance_limit,[max(distances)]),axis=0)
+        np.savetxt(f'{os.getcwd()}/{model_name}/distance_limit.csv',distance_limit,delimiter=',')
 
         for i in range(len(ans_sheet)):
             add_quan = max(ans_quan.values())-ans_quan[i]
@@ -122,23 +141,33 @@ class train:
     def train_model(self):
         input("Start training")
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-        self.model.fit(self.train_data, self.train_labels,epochs=40, verbose=1, shuffle=True)
+        self.model.fit(self.train_data, self.train_labels,epochs=12, verbose=1, shuffle=True)
         loss, acc = self.model.evaluate(self.valid_data, self.valid_labels, verbose=2)
         print("Validation loss: ",loss,"   Accuracy",acc)
     
 
-    def distance_count(self,x, y):
-        return np.sqrt(np.sum((x - y) ** 2))
-           
 
-class test(train):
+class test(template):
 
     def __init__(self):
-        super().__init__()
         self.model = tf.keras.models.load_model(f'{os.getcwd()}/{model_name}/model/model5')
         self.test_data,self.test_labels = self.read_test()
-        self.test_labels = tf.keras.utils.to_categorical(self.test_labels,num_classes=3)
-        self.test_model()
+        self.test_labels = self.test_labels.flatten()
+        self.poss = np.max(self.model.predict(self.test_data),axis=1)
+        self.predict_label = np.argmax(self.model.predict(self.test_data),axis=1)
+        self.data_out_range,self.index_list = self.drop_far()
+        #print(self.data_out_range.shape)
+        #print(self.index_list)
+
+        lb,lc = self.kmeans(self.data_out_range,2)
+        self.cluster_insert_label(self.index_list,lb)
+        
+
+        '''
+        self.cluster_result = self.hierarchical_clustering(self.data_out_range,5)
+        print(self.cluster_result)
+        print(self.index_list[self.cluster_result[0]])
+        '''
 
 
     def read_test(self)->tuple:
@@ -196,8 +225,54 @@ class test(train):
         return clusters
 
 
-    def test_model(self):
-        pass
+    def kmeans(self,data, k):
+        centers = data[np.random.choice(range(data.shape[0]), size=k, replace=False)]
+
+        while True:
+            distances = np.sqrt(((data[:, np.newaxis] - centers) ** 2).sum(axis=2))
+            labels = distances.argmin(axis=1)
+            new_centers = np.array([data[labels == i].mean(axis=0) for i in range(k)])
+            if np.all(centers == new_centers):
+                break
+
+            centers = new_centers
+
+        return labels, centers
+
+
+    def drop_far(self)->np.array:
+        global distance_limit
+        global ans_avg
+        index_bool = np.array([],dtype=bool)
+        index = np.array([],dtype=int)
+        for i in range(len(self.test_data)):
+            index_bool = np.concatenate((index_bool,[self.poss[i]<0.99999]),axis=0)
+            index = np.concatenate((index,[i]),axis=0) if self.poss[i]<0.99999 else index
+        return self.test_data[index_bool],index
+
+
+    def cluster_insert_label(self,index,label):
+        label = np.array(label,dtype=bool)  
+        print(label)
+
+
+        self.predict_label[index[label==True]]=4
+
+        print(self.predict_label)
+        self.predict_label[index[label==False]]=3
+        print(self.predict_label)
+
+        print(self.predict_label)
+        print(self.test_labels)
+        print(np.sum(self.test_labels == self.predict_label))
+        print(len(self.test_labels))
+        acc = np.sum(self.test_labels == self.predict_label)/len(self.test_labels)
+        print(f'Accuracy: {acc}')
+
+
+        
+
+
 
 if __name__ == '__main__':
     
@@ -205,7 +280,7 @@ if __name__ == '__main__':
     # Read data
     rate = 0.2 
     Clock_start = time.time()  
-    train()
+    #train()
     print(f'train time :{time.time()-Clock_start}')
     Clock_start = time.time()
     test()

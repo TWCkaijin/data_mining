@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import tensorflow as tf
+
 import os
 
 def euclidean_distance(x, y):
@@ -46,13 +46,16 @@ def hierarchical_clustering(data,cl_num):
 # Example usage
 
 if __name__ == '__main__':
-    model = tf.keras.models.load_model(f'{os.getcwd()}/gene/model/model5/saved_model.pb')
-    
-
-    '''
-    cluster_num = int(input("Enter the number of clusters: "))
-    data = np.array([random.randint(0,100) for x in range(20)])
-    print(data)
-    cl = hierarchical_clustering(data,cluster_num)
-    print(cl)
-    '''
+    x = np.array([[1,1],
+                  [2,1],
+                  [3,1],
+                  [4,1],
+                  [4,1.9],
+                  [2.5,2.5],
+                  [2.5,2.6],
+                  [2.6,2.5],
+                  [2.6,2.6]])
+    #y = hierarchical_clustering(x, 2)
+    #print(y)
+    y = euclidean_distance(np.array([0,0,0]),np.array([3,4,5]))
+    print(y)
