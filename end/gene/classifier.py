@@ -17,31 +17,33 @@ ans_avg = np.array([])
 
 
 class Color:
-    def __init__(self):
-        self.RED = '\033[91m'
-        self.GREEN = '\033[92m'
-        self.YELLOW = '\033[93m'
-        self.BLUE = '\033[94m'
-        self.END = '\033[0m'
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    END = '\033[0m'
 
 class template:
     def Data_preprocessing(self,data,label)->tuple:
         temp = pd.DataFrame(data)
-
+        print(f'{Color.RED}Ignore warning below{Color.END}{Color.YELLOW}')
         # Normalization
         data = temp.to_numpy()
         data = (data - np.min(data,axis=0))/((np.max(data,axis=0)-np.min(data,axis=0)) ) 
         # Missing value handling
         data[np.isnan(data)] = 0
-        print("Ignore warning")
+        print(f"{Color.RED}Ignore warning above{Color.END}")
         return data , label
     
 
-    def distance_count(self,x, y):
+    def distance_count(self,x, y,a=-1):
         try:
-            return np.sqrt(np.sum((x - y) ** 2,axis=1))
+            return np.sqrt(np.sum((x - y) ** 2,axis=a))
         except:
-            return np.sqrt(np.sum((x - y) ** 2))
+            try:
+                return np.sqrt(np.sum((x - y) ** 2,axis=1))
+            except:
+                return np.sqrt(np.sum((x - y) ** 2))
 
 class train(template):
 
@@ -186,7 +188,7 @@ class test(template):
 
         return self.Data_preprocessing(data,label)
         
-
+    '''
     def hierarchical_clustering(self,data,cl_num):
         num_samples = len(data)
         distances = np.zeros((num_samples, num_samples))
@@ -223,15 +225,17 @@ class test(template):
                             distances[index_k, index_i] = distances[index_i, index_k]
 
         return clusters
-
+    '''
 
     def kmeans(self,data, k):
         centers = data[np.random.choice(range(data.shape[0]), size=k, replace=False)]
 
         while True:
-            distances = np.sqrt(((data[:, np.newaxis] - centers) ** 2).sum(axis=2))
+
+            distances = self.distance_count(data[:,np.newaxis], centers,2)
             labels = distances.argmin(axis=1)
             new_centers = np.array([data[labels == i].mean(axis=0) for i in range(k)])
+            
             if np.all(centers == new_centers):
                 break
 
@@ -253,21 +257,14 @@ class test(template):
 
     def cluster_insert_label(self,index,label):
         label = np.array(label,dtype=bool)  
-        print(label)
-
-
-        self.predict_label[index[label==True]]=4
-
-        print(self.predict_label)
-        self.predict_label[index[label==False]]=3
-        print(self.predict_label)
-
-        print(self.predict_label)
-        print(self.test_labels)
-        print(np.sum(self.test_labels == self.predict_label))
-        print(len(self.test_labels))
-        acc = np.sum(self.test_labels == self.predict_label)/len(self.test_labels)
-        print(f'Accuracy: {acc}')
+        label_set = [3,4]
+        acc=[]
+        for i in range(len(label_set)):
+            self.predict_label[index[label==True]]=label_set[i]
+            self.predict_label[index[label==False]]=label_set[i-1]
+            acc.append(np.sum(self.test_labels == self.predict_label)/len(self.test_labels))
+        print(f'{Color.GREEN}{acc}{Color.END}')
+        print(f'{Color.RED}Accuracy: {max(acc)}{Color.END}')
 
 
         
@@ -277,14 +274,13 @@ class test(template):
 if __name__ == '__main__':
     
     used = np.array([])
-    # Read data
     rate = 0.2 
     Clock_start = time.time()  
-    #train()
-    print(f'train time :{time.time()-Clock_start}')
+    train()
+    print(f'{Color.BLUE}train time :{time.time()-Clock_start}{Color.END}')
     Clock_start = time.time()
     test()
-    print(f'test time :{time.time()-Clock_start}')
+    print(f'{Color.BLUE}test time :{time.time()-Clock_start}{Color.END}')
     
 
 
