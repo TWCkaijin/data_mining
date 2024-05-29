@@ -11,7 +11,6 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0' #TF GPU 參數設定
 
 # gloabl
 model_name = "gene"
-
 distance_limit = np.array([])
 ans_avg = np.array([])
 
@@ -83,6 +82,7 @@ class train(template):
 
         SI = np.random.choice(np.arange(len(train_data)),int(len(train_data)*self.rate),replace=False)
         valid_data , valid_labels = train_data[SI] , train_labels[SI]
+        train_data , train_labels = np.delete(train_data,SI,axis=0) , np.delete(train_labels,SI,axis=0)
         return train_data , train_labels , valid_data , valid_labels
 
 
@@ -157,20 +157,19 @@ class test(template):
         self.test_labels = self.test_labels.flatten()
         self.poss = np.max(self.model.predict(self.test_data),axis=1)
         self.predict_label = np.argmax(self.model.predict(self.test_data),axis=1)
-        self.data_out_range,self.index_list = self.drop_far()
-        #print(self.data_out_range.shape)
-        #print(self.index_list)
-
-        lb,lc = self.kmeans(self.data_out_range,2)
-        self.cluster_insert_label(self.index_list,lb)
-        
 
         '''
+        self.data_out_range,self.index_list = self.drop_far(0.9999)
+        lb = self.kmeans(self.data_out_range,2)
+        self.cluster_insert_label(self.index_list,lb)
+        
         self.cluster_result = self.hierarchical_clustering(self.data_out_range,5)
         print(self.cluster_result)
         print(self.index_list[self.cluster_result[0]])
         '''
 
+        max_acc = self.conf_iteration()
+        print(f'{Color.RED}Accuracy: {max_acc}{Color.END}')
 
     def read_test(self)->tuple:
         label_dict = dict()
@@ -241,17 +240,17 @@ class test(template):
 
             centers = new_centers
 
-        return labels, centers
+        return labels
 
 
-    def drop_far(self)->np.array:
+    def drop_far(self,min_conf)->np.array:
         global distance_limit
         global ans_avg
         index_bool = np.array([],dtype=bool)
         index = np.array([],dtype=int)
         for i in range(len(self.test_data)):
-            index_bool = np.concatenate((index_bool,[self.poss[i]<0.99999]),axis=0)
-            index = np.concatenate((index,[i]),axis=0) if self.poss[i]<0.99999 else index
+            index_bool = np.concatenate((index_bool,[self.poss[i]<min_conf]),axis=0)
+            index = np.concatenate((index,[i]),axis=0) if self.poss[i]<min_conf else index
         return self.test_data[index_bool],index
 
 
@@ -264,8 +263,25 @@ class test(template):
             self.predict_label[index[label==False]]=label_set[i-1]
             acc.append(np.sum(self.test_labels == self.predict_label)/len(self.test_labels))
         print(f'{Color.GREEN}{acc}{Color.END}')
-        print(f'{Color.RED}Accuracy: {max(acc)}{Color.END}')
+        print(f'Accuracy: {max(acc)}')
+        return max(acc)
 
+    def conf_iteration(self):
+        acc_list = []
+
+        for i in range(1,101):
+            self.data_out_range,self.index_list = self.drop_far((100.099-1000/i**2)/100)
+            if(self.index_list.size < 2):
+                acc_list.append(0)
+                continue
+            lb = self.kmeans(self.data_out_range,2)
+            acc_list.append(self.cluster_insert_label(self.index_list,lb))
+
+
+
+
+
+        return max(acc_list)
 
         
 
@@ -276,7 +292,7 @@ if __name__ == '__main__':
     used = np.array([])
     rate = 0.2 
     Clock_start = time.time()  
-    train()
+    #train()
     print(f'{Color.BLUE}train time :{time.time()-Clock_start}{Color.END}')
     Clock_start = time.time()
     test()
