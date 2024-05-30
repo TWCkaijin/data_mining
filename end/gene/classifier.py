@@ -7,13 +7,13 @@ import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' #TF 通知設定
 os.environ['CUDA_VISIBLE_DEVICES'] = '0' #TF GPU 參數設定
-
+np.seterr(all='ignore')
 
 # gloabl
-model_name = "gene"
+project_name = "gene"
 distance_limit = np.array([])
 ans_avg = np.array([])
-
+min_conf = [1.0,1.0,1.0]
 
 class Color:
     RED = '\033[91m'
@@ -25,13 +25,13 @@ class Color:
 class template:
     def Data_preprocessing(self,data,label)->tuple:
         temp = pd.DataFrame(data)
-        print(f'{Color.RED}Ignore warning below{Color.END}{Color.YELLOW}')
+        #print(f'{Color.RED}Ignore warning below{Color.END}{Color.YELLOW}')
         # Normalization
         data = temp.to_numpy()
         data = (data - np.min(data,axis=0))/((np.max(data,axis=0)-np.min(data,axis=0)) ) 
         # Missing value handling
         data[np.isnan(data)] = 0
-        print(f"{Color.RED}Ignore warning above{Color.END}")
+        #print(f"{Color.RED}Ignore warning above{Color.END}")
         return data , label
     
 
@@ -47,6 +47,7 @@ class template:
 class train(template):
 
     def __init__(self):
+        self.model_name = None
         self.rate = 0.2
         self.train_data, self.train_labels = self.read_train()
         self.train_data, self.train_labels = self.Data_aug(self.train_data,self.train_labels)
@@ -55,18 +56,20 @@ class train(template):
         self.valid_labels = tf.keras.utils.to_categorical(self.valid_labels,num_classes=3)
         self.model = self.model_layer()
         self.train_model()
+        
 
+    def safe_model(self):
         cond = input("save model? (y/n): ")
         if(cond == 'y' or cond == 'Y' ):
-            self.model.save(f'{os.getcwd()}/{model_name}/model/{input("Enter the model name: ")}')
-
+            self.model_name = input("model name: ")
+            self.model.save(f'{os.getcwd()}/{project_name}/model/{self.model_name}')
 
     def read_train(self)->tuple:
         label_dict = dict()
-        FT = open(f'{os.getcwd()}/{model_name}/train_data.csv','r')
+        FT = open(f'{os.getcwd()}/{project_name}/train_data.csv','r')
         train_data = np.genfromtxt(FT,delimiter=',',dtype='float32',filling_values=0.0)[1:]
 
-        FL = open(f'{os.getcwd()}/{model_name}/train_label.csv','r')
+        FL = open(f'{os.getcwd()}/{project_name}/train_label.csv','r')
         train_label = np.genfromtxt(FL,delimiter=',',dtype='str')
         train_label = pd.DataFrame(train_label)
         train_label = train_label.drop(0,axis=1).to_numpy()[1:]
@@ -82,7 +85,7 @@ class train(template):
 
         SI = np.random.choice(np.arange(len(train_data)),int(len(train_data)*self.rate),replace=False)
         valid_data , valid_labels = train_data[SI] , train_labels[SI]
-        train_data , train_labels = np.delete(train_data,SI,axis=0) , np.delete(train_labels,SI,axis=0)
+        #train_data , train_labels = np.delete(train_data,SI,axis=0) , np.delete(train_labels,SI,axis=0)
         return train_data , train_labels , valid_data , valid_labels
 
 
@@ -105,7 +108,7 @@ class train(template):
         for i in range(len(ans_avg)):
             distances = self.distance_count(data[ans_sheet[i]],ans_avg[i])
             distance_limit = np.concatenate((distance_limit,[max(distances)]),axis=0)
-        np.savetxt(f'{os.getcwd()}/{model_name}/distance_limit.csv',distance_limit,delimiter=',')
+        #np.savetxt(f'{os.getcwd()}/{project_name}/distance_limit.csv',distance_limit,delimiter=',')
 
         for i in range(len(ans_sheet)):
             add_quan = max(ans_quan.values())-ans_quan[i]
@@ -143,16 +146,29 @@ class train(template):
     def train_model(self):
         input("Start training")
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-        self.model.fit(self.train_data, self.train_labels,epochs=12, verbose=1, shuffle=True)
-        loss, acc = self.model.evaluate(self.valid_data, self.valid_labels, verbose=2)
+        self.model.fit(self.train_data, self.train_labels,epochs=80, verbose=1, shuffle=True)
+        loss, acc = self.model.evaluate(self.train_data, self.train_labels, verbose=2)
         print("Validation loss: ",loss,"   Accuracy",acc)
+
+        valid_conf = self.model.predict(self.train_data)
+        temp = np.array([np.max(valid_conf,axis=1),np.argmax(self.train_labels,axis=1)])
+        for i in range(len(temp[0])):
+            print(temp[0][i],temp[1][i])
+            if temp[0][i] < min_conf[int(temp[1][i])]:
+                min_conf[int(temp[1][i])] = temp[0][i]
+        np.savetxt("valid_conf.txt",valid_conf,delimiter=' ')
+        print(f'min_conf = {min_conf}')
+
     
 
 
 class test(template):
 
-    def __init__(self):
-        self.model = tf.keras.models.load_model(f'{os.getcwd()}/{model_name}/model/model5')
+    def __init__(self,trained_model):
+        if(trained_model.model_name == None):
+            self.model = trained_model.model
+        else:
+            self.model = tf.keras.models.load_model(f'{os.getcwd()}/{project_name}/model/{trained_model.model_name}')
         self.test_data,self.test_labels = self.read_test()
         self.test_labels = self.test_labels.flatten()
         self.poss = np.max(self.model.predict(self.test_data),axis=1)
@@ -162,10 +178,6 @@ class test(template):
         self.data_out_range,self.index_list = self.drop_far(0.9999)
         lb = self.kmeans(self.data_out_range,2)
         self.cluster_insert_label(self.index_list,lb)
-        
-        self.cluster_result = self.hierarchical_clustering(self.data_out_range,5)
-        print(self.cluster_result)
-        print(self.index_list[self.cluster_result[0]])
         '''
 
         max_acc = self.conf_iteration()
@@ -173,10 +185,10 @@ class test(template):
 
     def read_test(self)->tuple:
         label_dict = dict()
-        FT = open(f'{os.getcwd()}/{model_name}/test_data.csv','r')
+        FT = open(f'{os.getcwd()}/{project_name}/test_data.csv','r')
         data = np.genfromtxt(FT,delimiter=',',dtype='float32',filling_values=0.0)[1:]
 
-        FL = open(f'{os.getcwd()}/{model_name}/test_label.csv','r')
+        FL = open(f'{os.getcwd()}/{project_name}/test_label.csv','r')
         label = np.genfromtxt(FL,delimiter=',',dtype='str')
         label = pd.DataFrame(label)
         label = label.drop(0,axis=1).to_numpy()[1:]
@@ -186,45 +198,6 @@ class test(template):
             label[i][0] = label_dict[label[i][0]]
 
         return self.Data_preprocessing(data,label)
-        
-    '''
-    def hierarchical_clustering(self,data,cl_num):
-        num_samples = len(data)
-        distances = np.zeros((num_samples, num_samples))
-        np.fill_diagonal(distances, np.inf) 
-
-        clusters = [[i] for i in range(num_samples)]
-
-        while len(clusters) > cl_num:
-            min_distance = np.inf
-            merge_indices = (0, 0)
-
-            for i in range(len(clusters)):
-                for j in range(i + 1, len(clusters)):
-                    cluster_i = clusters[i]
-                    cluster_j = clusters[j]
-
-                    for index_i in cluster_i:
-                        for index_j in cluster_j:
-                            distance = self.distance_count(data[index_i], data[index_j])
-                            if distance < min_distance:
-                                min_distance = distance
-                                merge_indices = (i, j)
-
-            i, j = merge_indices
-            clusters[i].extend(clusters[j])
-            del clusters[j]
-
-            for k in range(len(clusters)):
-                if k != i:
-                    cluster_k = clusters[k]
-                    for index_i in clusters[i]:
-                        for index_k in cluster_k:
-                            distances[index_i, index_k] = self.distance_count(data[index_i], data[index_k])
-                            distances[index_k, index_i] = distances[index_i, index_k]
-
-        return clusters
-    '''
 
     def kmeans(self,data, k):
         centers = data[np.random.choice(range(data.shape[0]), size=k, replace=False)]
@@ -235,7 +208,7 @@ class test(template):
             labels = distances.argmin(axis=1)
             new_centers = np.array([data[labels == i].mean(axis=0) for i in range(k)])
             
-            if np.all(centers == new_centers):
+            if np.all(centers<=new_centers*1.01)and np.all(centers>=new_centers*0.99):
                 break
 
             centers = new_centers
@@ -243,14 +216,16 @@ class test(template):
         return labels
 
 
-    def drop_far(self,min_conf)->np.array:
+    def drop_far(self)->np.array:
         global distance_limit
         global ans_avg
+        global min_conf
+
         index_bool = np.array([],dtype=bool)
         index = np.array([],dtype=int)
         for i in range(len(self.test_data)):
-            index_bool = np.concatenate((index_bool,[self.poss[i]<min_conf]),axis=0)
-            index = np.concatenate((index,[i]),axis=0) if self.poss[i]<min_conf else index
+            index_bool = np.concatenate((index_bool,[self.poss[i]<min_conf[self.predict_label[i]]]),axis=0)
+            index = np.concatenate((index,[i]),axis=0) if self.poss[i]<min_conf[self.predict_label[i]] else index
         return self.test_data[index_bool],index
 
 
@@ -267,36 +242,25 @@ class test(template):
         return max(acc)
 
     def conf_iteration(self):
-        acc_list = []
+        self.data_out_range,self.index_list = self.drop_far()
+        lb = self.kmeans(self.data_out_range,2)
 
-        for i in range(1,101):
-            self.data_out_range,self.index_list = self.drop_far((100.099-1000/i**2)/100)
-            if(self.index_list.size < 2):
-                acc_list.append(0)
-                continue
-            lb = self.kmeans(self.data_out_range,2)
-            acc_list.append(self.cluster_insert_label(self.index_list,lb))
-
-
-
-
-
-        return max(acc_list)
+        return self.cluster_insert_label(self.index_list,lb)
 
         
-
-
 
 if __name__ == '__main__':
     
     used = np.array([])
     rate = 0.2 
     Clock_start = time.time()  
-    #train()
+    
+    a = train()
     print(f'{Color.BLUE}train time :{time.time()-Clock_start}{Color.END}')
     Clock_start = time.time()
-    test()
+    test(a)
     print(f'{Color.BLUE}test time :{time.time()-Clock_start}{Color.END}')
+    a.safe_model()
     
 
 
