@@ -5,6 +5,8 @@ import time
 import os
 
 
+MAX_EPOCH = 40
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' #TF 通知設定
 os.environ['CUDA_VISIBLE_DEVICES'] = '0' #TF GPU 參數設定
 np.seterr(all='ignore')
@@ -13,7 +15,9 @@ np.seterr(all='ignore')
 project_name = "gene"
 distance_limit = np.array([])
 ans_avg = np.array([])
-min_conf = [1.0,1.0,1.0]
+min_conf = []
+predict_matrix = None
+
 
 class Color:
     RED = '\033[91m'
@@ -46,8 +50,8 @@ class template:
 
 class train(template):
 
-    def __init__(self):
-        self.model_name = None
+    def __init__(self,model_name=None ):
+        self.model_name = model_name
         self.rate = 0.2
         self.train_data, self.train_labels = self.read_train()
         self.train_data, self.train_labels = self.Data_aug(self.train_data,self.train_labels)
@@ -58,7 +62,7 @@ class train(template):
         self.train_model()
         
 
-    def safe_model(self):
+    def save_model(self):
         cond = input("save model? (y/n): ")
         if(cond == 'y' or cond == 'Y' ):
             self.model_name = input("model name: ")
@@ -146,17 +150,20 @@ class train(template):
     def train_model(self):
         input("Start training")
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-        self.model.fit(self.train_data, self.train_labels,epochs=80, verbose=1, shuffle=True)
+        self.model.fit(self.train_data, self.train_labels,epochs=MAX_EPOCH, verbose=1, shuffle=True)
         loss, acc = self.model.evaluate(self.train_data, self.train_labels, verbose=2)
         print("Validation loss: ",loss,"   Accuracy",acc)
 
         valid_conf = self.model.predict(self.train_data)
         temp = np.array([np.max(valid_conf,axis=1),np.argmax(self.train_labels,axis=1)])
-        for i in range(len(temp[0])):
-            print(temp[0][i],temp[1][i])
-            if temp[0][i] < min_conf[int(temp[1][i])]:
-                min_conf[int(temp[1][i])] = temp[0][i]
-        np.savetxt("valid_conf.txt",valid_conf,delimiter=' ')
+        min_temp = [[],[],[]]
+        for i in range(3):
+            min_temp[i] = temp[0][temp[1]==i]
+            min_temp[i] = np.sort(min_temp[i])
+        global min_conf
+        for i in range(3):
+            min_conf.append(min_temp[i][int(len(min_temp[i])*0.1)])
+
         print(f'min_conf = {min_conf}')
 
     
@@ -165,10 +172,20 @@ class train(template):
 class test(template):
 
     def __init__(self,trained_model):
-        if(trained_model.model_name == None):
-            self.model = trained_model.model
-        else:
-            self.model = tf.keras.models.load_model(f'{os.getcwd()}/{project_name}/model/{trained_model.model_name}')
+        try:
+            if(trained_model.model_name == None):
+                self.model = trained_model.model
+            else:
+                global min_conf
+                self.model = tf.keras.models.load_model(f'{os.getcwd()}/{project_name}/model/{trained_model.model_name}')
+                min_conf = np.genfromtxt(f'{os.getcwd()}/{project_name}/model/{trained_model.model_name}/min_conf.csv',delimiter=',')
+        except:
+            if(trained_model==None):
+                print(f'{Color.RED}No model found{Color.END}')
+                return
+            else:
+                self.model = tf.keras.models.load_model(f'{os.getcwd()}/{project_name}/model/{trained_model}')
+        
         self.test_data,self.test_labels = self.read_test()
         self.test_labels = self.test_labels.flatten()
         self.poss = np.max(self.model.predict(self.test_data),axis=1)
@@ -208,7 +225,7 @@ class test(template):
             labels = distances.argmin(axis=1)
             new_centers = np.array([data[labels == i].mean(axis=0) for i in range(k)])
             
-            if np.all(centers<=new_centers*1.01)and np.all(centers>=new_centers*0.99):
+            if np.all(centers==new_centers):
                 break
 
             centers = new_centers
@@ -233,12 +250,21 @@ class test(template):
         label = np.array(label,dtype=bool)  
         label_set = [3,4]
         acc=[]
+        a,b = None , None
         for i in range(len(label_set)):
             self.predict_label[index[label==True]]=label_set[i]
             self.predict_label[index[label==False]]=label_set[i-1]
             acc.append(np.sum(self.test_labels == self.predict_label)/len(self.test_labels))
+            
+            
+            if(i==0):
+                a = np.array(self.predict_label==self.test_labels)
+            elif(i==1):
+                b = np.array(self.predict_label==self.test_labels)
+
+        global predict_matrix
+        predict_matrix = a if acc[0]>acc[1] else b
         print(f'{Color.GREEN}{acc}{Color.END}')
-        print(f'Accuracy: {max(acc)}')
         return max(acc)
 
     def conf_iteration(self):
@@ -250,17 +276,29 @@ class test(template):
         
 
 if __name__ == '__main__':
+    a = None
+
+    cond = input("Do you want to train model? (y/n):")
+
+    if(cond == 'y' or cond == 'Y' ):
+        mode = "both"
+        Clock_start = time.time()  
+        a = train()
+        print(f'{Color.BLUE}train time :{time.time()-Clock_start}{Color.END}')
+    else:
+        mode = "test"
+        a = input("model name:")
+
     
-    used = np.array([])
-    rate = 0.2 
-    Clock_start = time.time()  
-    
-    a = train()
-    print(f'{Color.BLUE}train time :{time.time()-Clock_start}{Color.END}')
     Clock_start = time.time()
     test(a)
     print(f'{Color.BLUE}test time :{time.time()-Clock_start}{Color.END}')
-    a.safe_model()
+    if(mode == "both"):
+        a.save_model()
+        np.savetxt(f'{os.getcwd()}/{project_name}/model/{a.model_name}/min_conf.csv',min_conf,delimiter=',')
+        np.savetxt(f'{os.getcwd()}/{project_name}/model/{a.model_name}/predict_label_correct.txt',predict_matrix,delimiter='\n',fmt='%d')
+    elif(mode == "test"):
+        pass
     
 
 
