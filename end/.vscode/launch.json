@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "cppdbg",
+      "request": "launch",
+      "args": [],
+      "stopAtEntry": false,
+      "externalConsole": true,
+      "cwd": "c:/Users/Kaijin/AppData/Local/Temp/c7e741db-1383-46d1-98ef-e78b777667ba_B123245005.zip.7ba/B123245005",
+      "program": "c:/Users/Kaijin/AppData/Local/Temp/c7e741db-1383-46d1-98ef-e78b777667ba_B123245005.zip.7ba/B123245005/build/Debug/outDebug",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
+}
